@@ -13,7 +13,8 @@ const CACHE_VERSION = 1;
 const embeddings = new OllamaEmbeddings({ model: EMBEDDING_MODEL });
 const knowledgeCache = new Map();
 
-// userID 값은 경로 조작을 막기 위해 허용 문자만 통과시킨다.
+// userID는 파일 경로에 들어가므로 안전한 문자만 허용한다.
+// 경로 탈출(path traversal)을 막고 PDF/캐시 조회를 예측 가능하게 유지하기 위한 장치다.
 function assertValidUserID(userID) {
   if (!/^[a-zA-Z0-9_-]+$/.test(userID)) {
     const error = new Error("Invalid userID.");
@@ -22,6 +23,7 @@ function assertValidUserID(userID) {
   }
 }
 
+// 지금 구조는 벡터DB 대신 메모리 기반으로 점수를 매기므로 코사인 유사도가 필요하다.
 function cosineSimilarity(vecA, vecB) {
   let dotProduct = 0;
   let normA = 0;
@@ -46,7 +48,8 @@ function getCachePath(userID) {
   return path.join(CACHE_ROOT, `${userID}.json`);
 }
 
-// userID 폴더 아래의 PDF를 전부 재귀적으로 수집한다.
+// public/pdf/<userID>/ 아래의 PDF를 하위 폴더까지 재귀적으로 모두 모은다.
+// 이렇게 하면 한 사용자에게 여러 PDF와 하위 폴더 구조를 함께 둘 수 있다.
 async function collectPdfSources(dirPath) {
   const entries = await fs.readdir(dirPath, { withFileTypes: true });
   const nestedSources = await Promise.all(
@@ -72,10 +75,15 @@ async function collectPdfSources(dirPath) {
     }),
   );
 
+  // 캐시 비교 결과가 실행할 때마다 흔들리지 않도록 정렬한다.
   return nestedSources.flat().sort((left, right) => left.filePath.localeCompare(right.filePath));
 }
 
 // 새 폴더 구조와 예전 단일 PDF 구조를 둘 다 지원한다.
+// 새 구조:
+//   public/pdf/<userID>/*.pdf
+// 예전 구조:
+//   public/pdf/<userID>.pdf
 async function resolveUserPdfSources(userID) {
   const userPdfRoot = getUserPdfRoot(userID);
 
@@ -109,7 +117,8 @@ async function resolveUserPdfSources(userID) {
   }
 }
 
-// PDF를 읽어 텍스트 메타데이터를 붙인 뒤, 청크 단위로 사용할 준비를 한다.
+// PDF를 읽어서 청크로 나누기 전에 출처 메타데이터를 붙인다.
+// 나중에 어떤 PDF에서 나온 청크인지 추적할 수 있도록 메타데이터를 남겨둔다.
 async function loadDocumentsFromSource(source) {
   const loader = new PDFLoader(source.filePath);
   const docs = await loader.load();
@@ -124,7 +133,8 @@ async function loadDocumentsFromSource(source) {
   }));
 }
 
-// 청크 생성과 임베딩 생성은 최초 1회만 수행하고 캐시에 저장한다.
+// 문서를 더 작은 청크로 나누고 각 청크를 임베딩한다.
+// 이 단계가 가장 비싸므로, 가능한 한 결과를 재사용하는 쪽이 중요하다.
 async function buildKnowledgeFromSources(sources) {
   const rawDocuments = await Promise.all(sources.map(loadDocumentsFromSource));
   const splitter = new RecursiveCharacterTextSplitter({
@@ -142,7 +152,8 @@ async function buildKnowledgeFromSources(sources) {
   );
 }
 
-// 디스크 캐시가 현재 PDF 목록과 정확히 일치하는지 확인한다.
+// 캐시에 저장된 파일 목록과 현재 파일 목록이 같은지 비교한다.
+// 경로, 수정 시각, 크기를 함께 확인해야 파일이 바뀌었을 때 캐시를 무효화할 수 있다.
 function isMatchingSources(cachedSources, currentSources) {
   if (!Array.isArray(cachedSources) || cachedSources.length !== currentSources.length) {
     return false;
@@ -158,7 +169,8 @@ function isMatchingSources(cachedSources, currentSources) {
   });
 }
 
-// 캐시 파일이 유효하면 그대로 재사용하고, 아니면 null을 반환한다.
+// 디스크에서 캐시 파일을 읽는다.
+// 캐시가 없거나 깨졌거나 오래됐으면 null을 반환해서 나중에 다시 만들도록 한다.
 async function readCachedKnowledge(userID, sources) {
   const cachePath = getCachePath(userID);
 
@@ -185,7 +197,7 @@ async function readCachedKnowledge(userID, sources) {
   }
 }
 
-// 임베딩 결과를 JSON 캐시로 저장해 다음 요청에서 재사용한다.
+// 임베딩된 청크를 저장해 다음 요청에서는 PDF 파싱과 임베딩을 건너뛰게 한다.
 async function writeCachedKnowledge(userID, sources, chunks) {
   await fs.mkdir(CACHE_ROOT, { recursive: true });
   const cachePath = getCachePath(userID);
@@ -201,7 +213,10 @@ async function writeCachedKnowledge(userID, sources, chunks) {
   await fs.writeFile(cachePath, JSON.stringify(payload), "utf8");
 }
 
-// 캐시가 없거나 오래됐으면 PDF를 다시 읽어서 임베딩을 만든다.
+// 실제 로딩 흐름이다.
+// 1. 사용자 PDF를 찾는다.
+// 2. 캐시를 먼저 확인한다.
+// 3. 캐시가 없거나 오래됐으면 다시 만들어 저장한다.
 async function loadUserKnowledge(userID) {
   const sources = await resolveUserPdfSources(userID);
 
@@ -221,7 +236,8 @@ async function loadUserKnowledge(userID) {
   return builtKnowledge;
 }
 
-// 같은 userID에 대한 동시 요청은 하나의 로딩 작업을 공유한다.
+// 같은 사용자에게 동시에 여러 요청이 들어올 수 있다.
+// 이 캐시는 실행 중인 Promise를 저장해 같은 작업이 한 번만 돌도록 한다.
 async function getUserKnowledge(userID) {
   if (!knowledgeCache.has(userID)) {
     const promise = loadUserKnowledge(userID).catch((error) => {
@@ -235,7 +251,8 @@ async function getUserKnowledge(userID) {
   return knowledgeCache.get(userID);
 }
 
-// 질문과 가장 비슷한 청크를 고른 뒤, 모델에 넣을 컨텍스트를 만든다.
+// 질문을 임베딩한 뒤 사용자 청크들과 비교해서 가장 관련 높은 결과를 돌려준다.
+// 라우트는 이 결과를 LLM에 넣을 컨텍스트로 사용한다.
 async function searchUserKnowledge(userID, question, topK = 5) {
   const knowledge = await getUserKnowledge(userID);
   const queryVector = await embeddings.embedQuery(question);
@@ -249,7 +266,8 @@ async function searchUserKnowledge(userID, question, topK = 5) {
     .slice(0, topK);
 }
 
-// 배치 준비용으로 현재 PDF가 있는 userID를 모두 찾는다.
+// 사전 임베딩 스크립트에서 사용한다.
+// 현재 디스크에 PDF가 있는 userID를 모두 찾아낸다.
 async function listKnownUserIDs() {
   const entries = await fs.readdir(PDF_ROOT, { withFileTypes: true });
   const userIDs = new Set();
@@ -268,7 +286,8 @@ async function listKnownUserIDs() {
   return [...userIDs].sort();
 }
 
-// 서비스 시작 전 미리 돌리면 최초 응답 지연을 줄일 수 있다.
+// 앱이 실제 요청을 받기 전에 한 번 돌리면 캐시를 미리 데울 수 있다.
+// 그러면 첫 요청에서 발생하는 무거운 임베딩 비용을 실제 트래픽에서 빼낼 수 있다.
 async function preloadAllUserKnowledge() {
   const userIDs = await listKnownUserIDs();
   const results = [];

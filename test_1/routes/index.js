@@ -7,6 +7,9 @@ const { StringOutputParser } = require("@langchain/core/output_parsers");
 const { ChatPromptTemplate } = require("@langchain/core/prompts");
 const { PDFLoader } = require("@langchain/community/document_loaders/fs/pdf");
 const { RecursiveCharacterTextSplitter } = require("@langchain/textsplitters");
+const { default: axios } = require('axios');
+
+const { sendMessage } = require(base + "/lib/sendTelegram");
 
 // 전역 변수로 분할된 문서들과 그에 대응하는 임베딩 벡터 배열을 저장
 let savedDocs = [];
@@ -109,6 +112,13 @@ router.get('/', async function(req, res, next) {
     console.error("API 실행 중 에러 발생:", error);
     res.status(500).json({ error: "서버 내부 에러가 발생했습니다." });
   }
+});
+
+/* GET home page. */
+router.get('/sandMesTelegram', async function(req, res, next) {
+  let test = await sendMessage("test_send");
+
+  res.json({test : "test"})
 });
 
 
