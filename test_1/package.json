@@ -1,16 +1,22 @@
 {
-  "name": "test-1",
+  "name": "frontend",
   "version": "0.0.0",
   "private": true,
   "scripts": {
     "start": "node ./bin/www"
   },
   "dependencies": {
+    "@langchain/community": "^1.1.29",
+    "@langchain/core": "^1.2.8",
+    "@langchain/ollama": "^1.3.0",
+    "@langchain/textsplitters": "^1.0.1",
     "cookie-parser": "~1.4.4",
     "debug": "~2.6.9",
+    "ejs": "~2.6.1",
     "express": "~4.16.1",
     "http-errors": "~1.6.3",
-    "jade": "~1.11.0",
-    "morgan": "~1.9.1"
+    "langchain": "^1.5.9",
+    "morgan": "~1.9.1",
+    "pdf-parse": "^2.4.5"
   }
 }

@@ -29,7 +29,7 @@ function cosineSimilarity(vecA, vecB) {
 async function initRAG() {
   console.log("RAG 시스템 초기화 중... PDF 로딩 시작");
   try {
-    const loader = new PDFLoader("/RAG_1/test.pdf");
+    const loader = new PDFLoader(base + "/public/pdf/test.pdf");
     const rawDocs = await loader.load();
 
     const textSplitter = new RecursiveCharacterTextSplitter({
