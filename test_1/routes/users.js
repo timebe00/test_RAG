@@ -48,7 +48,7 @@ Question:
     });
     const answer = await prompt.pipe(model).pipe(new StringOutputParser()).invoke({ context, question });
 
-    const answerTxt = `질문 : ${question}n\n답변 : ${answer}`
+    const answerTxt = `Q: ${question}\nA: ${answer}`
     sendMessage(answerTxt);
 
     return res.json({

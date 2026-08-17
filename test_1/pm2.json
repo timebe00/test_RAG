@@ -8,8 +8,16 @@
       "watch": true,
       "ignore_watch": [
         "node_modules",
-        ".rag-cache"
-      ]
+        "**/node_modules/**",
+        ".rag-cache",
+        "**/.rag-cache/**",
+        "**/*.log",
+        ".git"
+      ],
+      "watch_options": {
+        "followSymlinks": false,
+        "usePolling": true
+      }
     }
   ]
 }
