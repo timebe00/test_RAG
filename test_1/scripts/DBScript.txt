@@ -1,0 +1,112 @@
+-- =========================================================
+-- 1. user
+-- =========================================================
+CREATE TABLE `user` (
+    `user_id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '사용자 번호',
+    `user_code` VARCHAR(255) NOT COMMENT '아이디',
+    `name` VARCHAR(255) NOT COMMENT '이름',
+    `use_yn` VARCHAR(1) NOT NULL DEFAULT 'Y' COMMENT '사용여부',
+    `reg_date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록일',
+    `upd_date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP COMMENT '수정일',
+
+    PRIMARY KEY (`user_id`),
+    UNIQUE KEY `uk_user_user_code` (`user_code`)
+)
+ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_unicode_ci
+COMMENT='사용자';
+
+
+-- =========================================================
+-- 2. user_integrations
+-- 사용자 1명당 여러 Telegram 연동 가능
+-- =========================================================
+CREATE TABLE `user_integrations` (
+    `integrations_id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '텔레그램 번호',
+    `user_id` BIGINT NOT NULL COMMENT '사용자 번호',
+    `telegram_bot_token` TEXT NOT NULL COMMENT '텔레그램 토큰',
+    `telegram_chat_id` VARCHAR(255) NOT NULL COMMENT '채널 아이디',
+    `return_url` TEXT NOT NULL COMMENT '반환 url',
+    `return_method` VARCHAR(255) NOT NULL COMMENT '반환 메소드',
+    `return_auth_value` TEXT NULL COMMENT '인증정보',
+    `use_yn` VARCHAR(1) NOT NULL DEFAULT 'Y' COMMENT '사용여부',
+
+    PRIMARY KEY (`integrations_id`),
+
+    KEY `idx_user_integrations_user_id` (`user_id`),
+
+    CONSTRAINT `fk_user_integrations_user`
+        FOREIGN KEY (`user_id`)
+        REFERENCES `user` (`user_id`)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+)
+ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_unicode_ci
+COMMENT='사용자 텔레그램 및 반환 연동정보';
+
+
+-- =========================================================
+-- 3. question
+-- =========================================================
+CREATE TABLE `question` (
+    `question_id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '질문 번호',
+    `integrations_id` BIGINT NOT NULL COMMENT '텔레그램 번호',
+    `question` TEXT NOT NULL COMMENT '질문 내용',
+    `send_type` VARCHAR(1) NULL COMMENT '발송 타입',
+    `send_date` DATETIME NULL COMMENT '발송일',
+    `reg_id` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록일',
+    `upd_date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP COMMENT '수정일',
+
+    PRIMARY KEY (`question_id`),
+
+    KEY `idx_question_integrations_id` (`integrations_id`),
+
+    CONSTRAINT `fk_question_integrations`
+        FOREIGN KEY (`integrations_id`)
+        REFERENCES `user_integrations` (`integrations_id`)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+)
+ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_unicode_ci
+COMMENT='질문';
+
+
+-- =========================================================
+-- 4. answer
+-- =========================================================
+CREATE TABLE `answer` (
+    `answer_id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '번호',
+    `question_id` BIGINT NOT NULL COMMENT '질문 번호',
+    `prev_answer_id` BIGINT NULL COMMENT '이전 답변 번호',
+    `answer` TEXT NOT NULL COMMENT '답변',
+    `feedback` TEXT NULL COMMENT '피드백',
+    `reg_id` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록일',
+
+    PRIMARY KEY (`answer_id`),
+
+    KEY `idx_answer_question_id` (`question_id`),
+    KEY `idx_answer_prev_answer_id` (`prev_answer_id`),
+
+    CONSTRAINT `fk_answer_question`
+        FOREIGN KEY (`question_id`)
+        REFERENCES `question` (`question_id`)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+    CONSTRAINT `fk_answer_prev_answer`
+        FOREIGN KEY (`prev_answer_id`)
+        REFERENCES `answer` (`answer_id`)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL
+)
+ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_unicode_ci
+COMMENT='답변 및 피드백 이력';

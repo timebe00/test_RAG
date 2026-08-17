@@ -153,3 +153,5 @@ nginx/uwsgi_params
 nginx/ssl
 
 /test_1/config
+
+.env

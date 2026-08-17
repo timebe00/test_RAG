@@ -84,6 +84,11 @@ User feedback:
 }
 
 /* GET home page. */
+router.get('/', async function(req, res, next) {
+  res.json({ test: "OK" });
+});
+
+/* GET home page. */
 router.get('/sandMesTelegram', async function(req, res, next) {
   await sendMessage("test_send");
 
