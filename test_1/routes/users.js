@@ -6,6 +6,7 @@ const { ChatPromptTemplate } = require("@langchain/core/prompts");
 
 const { searchUserKnowledge } = require(base + "/lib/userKnowledge");
 const { getOllamaBaseUrl } = require(base + "/lib/ollamaConfig");
+const { sendMessage } = require(base + "/lib/sendTelegram");
 
 const router = express.Router();
 
@@ -27,6 +28,7 @@ async function answerQuestion(req, res) {
     const topChunks = await searchUserKnowledge(userID, question, 5);
     const context = topChunks.map((chunk) => chunk.pageContent).join("\n\n");
     const ollamaBaseUrl = getOllamaBaseUrl();
+    const chatModelName = config.ollama.chatModel.name;
 
     // 모델이 제공된 컨텍스트 밖의 내용을 섞지 않도록 프롬프트를 엄격하게 유지한다.
     const prompt = ChatPromptTemplate.fromTemplate(`
@@ -41,10 +43,13 @@ Question:
 {question}
 `);
     const model = new Ollama({
-      model: "gemma4:26b",
+      model: chatModelName,
       baseUrl: ollamaBaseUrl,
     });
     const answer = await prompt.pipe(model).pipe(new StringOutputParser()).invoke({ context, question });
+
+    const answerTxt = `질문 : ${question}n\n답변 : ${answer}`
+    sendMessage(answerTxt);
 
     return res.json({
       userID,

@@ -8,7 +8,7 @@ const { getOllamaBaseUrl } = require("./ollamaConfig");
 
 const PDF_ROOT = path.join(__dirname, "..", "public", "pdf");
 const CACHE_ROOT = path.join(__dirname, "..", ".rag-cache");
-const EMBEDDING_MODEL = "nomic-embed-text";
+const EMBEDDING_MODEL = config.ollama.embeddingModel.name;
 const CACHE_VERSION = 1;
 
 const embeddings = new OllamaEmbeddings({
