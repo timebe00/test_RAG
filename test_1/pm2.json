@@ -12,7 +12,8 @@
         ".rag-cache",
         "**/.rag-cache/**",
         "**/*.log",
-        ".git"
+        ".git",
+        "/public/pdf"
       ],
       "watch_options": {
         "followSymlinks": false,

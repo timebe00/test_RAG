@@ -3,8 +3,9 @@
 -- =========================================================
 CREATE TABLE `user` (
     `user_id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '사용자 번호',
-    `user_code` VARCHAR(255) NOT COMMENT '아이디',
-    `name` VARCHAR(255) NOT COMMENT '이름',
+    `user_code` VARCHAR(255) COMMENT '아이디',
+    `name` VARCHAR(255) COMMENT '이름',
+    `api_key` text NOT NULL COMMENT '사용자 고유 코드',
     `use_yn` VARCHAR(1) NOT NULL DEFAULT 'Y' COMMENT '사용여부',
     `reg_date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록일',
     `upd_date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP

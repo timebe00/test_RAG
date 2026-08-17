@@ -61,6 +61,10 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    #expose:
+    #  - "3306"
+    ports:
+      - "3306:3306"
     networks:
       - common-net
 
