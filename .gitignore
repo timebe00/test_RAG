@@ -150,3 +150,4 @@ nginx/modules
 nginx/nginx.conf
 nginx/scgi_params
 nginx/uwsgi_params
+nginx/ssl
