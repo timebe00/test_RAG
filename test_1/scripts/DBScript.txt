@@ -88,6 +88,8 @@ CREATE TABLE `answer` (
     `prev_answer_id` BIGINT NULL COMMENT '이전 답변 번호',
     `answer` TEXT NOT NULL COMMENT '답변',
     `feedback` TEXT NULL COMMENT '피드백',
+    `tel_send_type` varchar(1) NULL COMMENT '텔레그램 발송 타입 1:정상 발송 2:발송실패',
+    `tel_send_date` DATETIME NULL COMMENT '텔레그램 발송 일자',
     `reg_id` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록일',
 
     PRIMARY KEY (`answer_id`),

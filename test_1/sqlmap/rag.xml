@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mapper namespace="rag">
+  <select id="selectTelegramIntegrations">
+    <![CDATA[
+      SELECT
+        ui.integrations_id AS integrationsId,
+        ui.telegram_bot_token AS telegramBotToken,
+        ui.telegram_chat_id AS telegramChatId
+      FROM `user` u
+      INNER JOIN user_integrations ui
+        ON ui.user_id = u.user_id
+      WHERE u.user_code = #{userID}
+        AND u.api_key = #{apiKey}
+        AND u.use_yn = 'Y'
+        AND ui.use_yn = 'Y'
+      ORDER BY ui.integrations_id
+    ]]>
+  </select>
+
+  <insert id="insertQuestion">
+    <![CDATA[
+      INSERT INTO question (
+        integrations_id,
+        question,
+        send_type
+      ) VALUES (
+        #{integrationsId},
+        #{question},
+        '1'
+      )
+    ]]>
+  </insert>
+
+  <insert id="insertAnswer">
+    <![CDATA[
+      INSERT INTO answer (
+        question_id,
+        prev_answer_id,
+        answer,
+        feedback
+      ) VALUES (
+        #{questionId},
+        NULL,
+        #{answer},
+        NULL
+      )
+    ]]>
+  </insert>
+
+  <update id="updateAnswerTelegramStatus">
+    <![CDATA[
+      UPDATE answer
+      SET
+        tel_send_type = #{telSendType},
+        tel_send_date = CASE
+          WHEN #{telSendType} = '1' THEN NOW()
+          ELSE NULL
+        END
+      WHERE answer_id = #{answerId}
+    ]]>
+  </update>
+</mapper>

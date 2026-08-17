@@ -5,6 +5,12 @@ const { ChatPromptTemplate } = require("@langchain/core/prompts");
 const { searchUserKnowledge } = require("../lib/userKnowledge");
 const { getOllamaBaseUrl } = require("../lib/ollamaConfig");
 const { sendMessage } = require("../lib/sendTelegram");
+const {
+  selectTelegramIntegrations,
+  insertQuestion,
+  insertAnswer,
+  updateAnswerTelegramStatus,
+} = require("../modules/ragModule");
 
 function createModel() {
   return new Ollama({
@@ -106,15 +112,77 @@ async function processTelegramFeedback(replyText, feedback) {
   };
 }
 
-async function answerQuestion(userID, question) {
+async function answerQuestion(userID, question, apiKey) {
+  const integrations = await selectTelegramIntegrations(userID, apiKey);
+
+  if (integrations.length === 0) {
+    const error = new Error("Invalid userID or apiKey.");
+    error.status = 401;
+    throw error;
+  }
+
+  const questionIds = [];
+  for (const integration of integrations) {
+    const result = await insertQuestion(integration.integrationsId, question);
+    questionIds.push(String(result.insertId));
+  }
+
   const topChunks = await searchUserKnowledge(userID, question, 5);
   const context = topChunks.map((chunk) => chunk.pageContent).join("\n\n");
   const answer = await generateAnswerFromContext(question, context);
 
-  await sendMessage(`Q: ${question}\nA: ${answer}`);
+  const answerIds = [];
+  for (const questionId of questionIds) {
+    const result = await insertAnswer(questionId, answer);
+    answerIds.push(String(result.insertId));
+  }
+
+  const message = `Q: ${question}\nA: ${answer}`;
+  const failedAnswerIds = [];
+
+  for (let index = 0; index < integrations.length; index += 1) {
+    const integration = integrations[index];
+    const answerId = answerIds[index];
+
+    let deliveryError = null;
+
+    try {
+      await sendMessage(
+        message,
+        integration.telegramBotToken,
+        integration.telegramChatId
+      );
+    } catch (error) {
+      deliveryError = error;
+    }
+
+    if (deliveryError) {
+      console.error(`Telegram delivery failed for answer ${answerId}:`, deliveryError);
+      failedAnswerIds.push(answerId);
+
+      try {
+        await updateAnswerTelegramStatus(answerId, "2");
+      } catch (statusError) {
+        console.error(`Telegram status update failed for answer ${answerId}:`, statusError);
+      }
+
+      continue;
+    }
+
+    await updateAnswerTelegramStatus(answerId, "1");
+  }
+
+  if (failedAnswerIds.length > 0) {
+    const error = new Error("Telegram message delivery failed.");
+    error.status = 502;
+    error.failedAnswerIds = failedAnswerIds;
+    throw error;
+  }
 
   return {
     userID,
+    questionIds,
+    answerIds,
     question,
     answer,
     sources: [...new Set(

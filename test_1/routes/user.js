@@ -1,32 +1,7 @@
 const express = require("express");
-const {
-  answerQuestion,
-  processTelegramFeedback,
-} = require("../services/ragService");
+const { answerQuestion } = require("../services/ragService");
 
 const router = express.Router();
-
-router.get("/", function(req, res) {
-  return res.json({ test: "OK" });
-});
-
-// https://api.telegram.org/bot<token>/setWebhook?url=https://www.destop.p-e.kr/telegram/webhook/message
-router.post("/telegram/webhook/message", async function(req, res) {
-  const message = req.body?.message;
-  const replyText = message?.reply_to_message?.text;
-  const feedback = String(message?.text || "").trim();
-
-  try {
-    const result = await processTelegramFeedback(replyText, feedback);
-    return res.json(result);
-  } catch (error) {
-    console.error("Telegram feedback regeneration failed:", error);
-    return res.status(500).json({
-      ok: false,
-      error: "피드백 기반 답변 재생성에 실패했습니다.",
-    });
-  }
-});
 
 router.get("/askAI/:userID", async function(req, res) {
   const { userID } = req.params;

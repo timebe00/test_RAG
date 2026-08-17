@@ -1,11 +1,15 @@
 const axios = require('axios');
 
-async function sendMessage(msg) {
+async function sendMessage(
+    msg,
+    botToken = config.telegram.key,
+    chatId = config.telegram.clientId
+) {
     await axios({
-        url : config.telegram.link + "/bot" + config.telegram.key + "/sendmessage",
+        url : config.telegram.link + "/bot" + botToken + "/sendmessage",
         method:"GET",
         params: {
-            chat_id : config.telegram.clientId,
+            chat_id : chatId,
             text : msg
         }
     })
