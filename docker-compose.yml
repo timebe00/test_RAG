@@ -22,7 +22,6 @@ services:
   ragNode:
     image: pm2:24.19.0
     container_name: ragNode
-    commend: pm2 start pm2.json
     expose:
       - "3000"
     volumes:

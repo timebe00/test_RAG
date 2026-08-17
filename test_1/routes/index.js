@@ -11,13 +11,11 @@ router.get('/sandMesTelegram', async function(req, res, next) {
   res.json({test : "test"})
 });
 
-/* GET home page. */
+//  https://api.telegram.org/bot<토큰>/setWebhook?url=https://www.destop.p-e.kr/telegram/webhook/message
 router.post('/telegram/webhook/message', async function(req, res, next) {
-  console.log("!!!!!!!!!")
+  console.log("!!!!!!!!!", req.body.message.text)
 
   res.json({test : "test2"})
 });
-
-
 
 module.exports = router;
