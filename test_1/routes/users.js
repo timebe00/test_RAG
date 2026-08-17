@@ -5,6 +5,7 @@ const { StringOutputParser } = require("@langchain/core/output_parsers");
 const { ChatPromptTemplate } = require("@langchain/core/prompts");
 
 const { searchUserKnowledge } = require(base + "/lib/userKnowledge");
+const { getOllamaBaseUrl } = require(base + "/lib/ollamaConfig");
 
 const router = express.Router();
 
@@ -25,6 +26,7 @@ async function answerQuestion(req, res) {
     // 사용자 캐시에서 질문과 가장 관련 높은 청크를 가져온다.
     const topChunks = await searchUserKnowledge(userID, question, 5);
     const context = topChunks.map((chunk) => chunk.pageContent).join("\n\n");
+    const ollamaBaseUrl = getOllamaBaseUrl();
 
     // 모델이 제공된 컨텍스트 밖의 내용을 섞지 않도록 프롬프트를 엄격하게 유지한다.
     const prompt = ChatPromptTemplate.fromTemplate(`
@@ -38,7 +40,10 @@ Reference context:
 Question:
 {question}
 `);
-    const model = new Ollama({ model: "gemma4:26b" });
+    const model = new Ollama({
+      model: "gemma4:26b",
+      baseUrl: ollamaBaseUrl,
+    });
     const answer = await prompt.pipe(model).pipe(new StringOutputParser()).invoke({ context, question });
 
     return res.json({

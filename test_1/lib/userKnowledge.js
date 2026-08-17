@@ -4,13 +4,17 @@ const fs = require("fs/promises");
 const { OllamaEmbeddings } = require("@langchain/ollama");
 const { PDFLoader } = require("@langchain/community/document_loaders/fs/pdf");
 const { RecursiveCharacterTextSplitter } = require("@langchain/textsplitters");
+const { getOllamaBaseUrl } = require("./ollamaConfig");
 
 const PDF_ROOT = path.join(__dirname, "..", "public", "pdf");
 const CACHE_ROOT = path.join(__dirname, "..", ".rag-cache");
 const EMBEDDING_MODEL = "nomic-embed-text";
 const CACHE_VERSION = 1;
 
-const embeddings = new OllamaEmbeddings({ model: EMBEDDING_MODEL });
+const embeddings = new OllamaEmbeddings({
+  model: EMBEDDING_MODEL,
+  baseUrl: getOllamaBaseUrl(),
+});
 const knowledgeCache = new Map();
 
 // userID는 파일 경로에 들어가므로 안전한 문자만 허용한다.

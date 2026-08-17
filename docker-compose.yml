@@ -1,76 +1,39 @@
+networks:
+  common-net:
+    name: common-net
+    driver: bridge
+
 services:
   nginx:
     image: nginx:1.31.3
     container_name: nginx
-    restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - /d/proj/test/test_RAG/nginx:/etc/nginx
+      - ./nginx:/etc/nginx
     depends_on:
-      node:
-        condition: service_started
+      - "ragNode"
+    links:
+      - "ragNode:RagWeb"
     networks:
-      - app-network
-    healthcheck:
-      test: ["CMD", "nginx", "-t"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - common-net
 
-  node:
+  ragNode:
     image: pm2:24.19.0
-    container_name: node
-    restart: unless-stopped
-    working_dir: /app
-    volumes:
-      - /d/proj/test/test_RAG/test_1:/app
-    command: pm2 start pm2.json
+    container_name: ragNode
+    commend: pm2 start pm2.json
     expose:
       - "3000"
-    depends_on:
-      ollama:
-        condition: service_healthy
-    networks:
-      - app-network
-    environment:
-      TZ: Asia/Seoul
-      NODE_ENV: production
-      OLLAMA_HOST: http://ollama:11434
-    init: true
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "require('http').get('http://localhost:3000', r => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))"
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ollama
-    restart: unless-stopped
     volumes:
-      - /d/proj/test/test_RAG/ollama:/root/.ollama
-    expose:
-      - "11434"
-    networks:
-      - app-network
+      - ./test_1:/app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       TZ: Asia/Seoul
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-
-networks:
-  app-network:
-    driver: bridge
+      OLLAMA_HOST: http://host.docker.internal:11434
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+    networks:
+      - common-net
+    #tty: true
+    command: "tail -f /dev/null"
