@@ -9,6 +9,8 @@ const {
   selectTelegramIntegrations,
   insertQuestion,
   insertAnswer,
+  selectLatestAnswerForFeedback,
+  insertFeedbackAnswer,
   updateAnswerTelegramStatus,
 } = require("../modules/ragModule");
 
@@ -24,14 +26,21 @@ function extractQAndA(text) {
     return null;
   }
 
-  const match = text.match(/Q\s*:\s*([\s\S]*?)\n\s*A\s*:\s*([\s\S]*)/);
-  if (!match) {
+  const idMatch = text.match(
+    /(?:^|\n)[ \t]*ID[ \t]*:[ \t]*(\d+)[ \t]*(?:\n|$)/i
+  );
+  const contentMatch = text.match(
+    /Q\s*:\s*([\s\S]*?)\n\s*A\s*:\s*([\s\S]*?)(?=\n\s*ID\s*:|$)/i
+  );
+
+  if (!idMatch || !contentMatch) {
     return null;
   }
 
   return {
-    question: match[1].trim(),
-    answer: match[2].trim(),
+    questionId: idMatch[1],
+    question: contentMatch[1].trim(),
+    answer: contentMatch[2].trim(),
   };
 }
 
@@ -87,26 +96,60 @@ async function processTelegramFeedback(replyText, feedback) {
     return {
       ok: true,
       handled: false,
-      reason: "missing reply_to_message, parsed Q/A, or feedback text",
+      reason: "missing reply_to_message, parsed ID/Q/A, or feedback text",
     };
   }
 
+  const latestRows = await selectLatestAnswerForFeedback(original.questionId);
+  if (latestRows.length === 0) {
+    const error = new Error("Question or previous answer not found.");
+    error.status = 404;
+    throw error;
+  }
+
+  const latest = latestRows[0];
+
   const revisedAnswer = await regenerateAnswerWithFeedback(
-    original.question,
-    original.answer,
+    latest.question,
+    latest.previousAnswer,
     feedback
   );
 
-  await sendMessage([
-    `Q: ${original.question}`,
+  const insertResult = await insertFeedbackAnswer(
+    latest.questionId,
+    latest.answerId,
+    revisedAnswer,
+    feedback
+  );
+  const answerId = String(insertResult.insertId);
+  const message = [
+    `ID:${latest.questionId}`,
+    `Q: ${latest.question}`,
     `A: ${revisedAnswer}`,
-  ].join("\n\n"));
+  ].join("\n");
+
+  try {
+    await sendMessage(
+      message,
+      latest.telegramBotToken,
+      latest.telegramChatId
+    );
+  } catch (error) {
+    await updateAnswerTelegramStatus(answerId, "2");
+    error.status = 502;
+    throw error;
+  }
+
+  await updateAnswerTelegramStatus(answerId, "1");
 
   return {
     ok: true,
     handled: true,
-    question: original.question,
-    previousAnswer: original.answer,
+    questionId: String(latest.questionId),
+    answerId,
+    prevAnswerId: String(latest.answerId),
+    question: latest.question,
+    previousAnswer: latest.previousAnswer,
     feedback,
     revisedAnswer,
   };
@@ -137,12 +180,13 @@ async function answerQuestion(userID, question, apiKey) {
     answerIds.push(String(result.insertId));
   }
 
-  const message = `Q: ${question}\nA: ${answer}`;
   const failedAnswerIds = [];
 
   for (let index = 0; index < integrations.length; index += 1) {
     const integration = integrations[index];
+    const questionId = questionIds[index];
     const answerId = answerIds[index];
+    const message = `ID:${questionId}\nQ: ${question}\nA: ${answer}`;
 
     let deliveryError = null;
 

@@ -21,9 +21,9 @@ router.post("/telegram/webhook/message", async function(req, res) {
     return res.json(result);
   } catch (error) {
     console.error("Telegram feedback regeneration failed:", error);
-    return res.status(500).json({
+    return res.status(error.status || 500).json({
       ok: false,
-      error: "피드백 기반 답변 재생성에 실패했습니다.",
+      error: error.message || "피드백 기반 답변 재생성에 실패했습니다.",
     });
   }
 });

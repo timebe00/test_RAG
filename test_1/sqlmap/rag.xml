@@ -47,6 +47,42 @@
     ]]>
   </insert>
 
+  <select id="selectLatestAnswerForFeedback">
+    <![CDATA[
+      SELECT
+        a.answer_id AS answerId,
+        a.question_id AS questionId,
+        a.answer AS previousAnswer,
+        q.question,
+        ui.telegram_bot_token AS telegramBotToken,
+        ui.telegram_chat_id AS telegramChatId
+      FROM answer a
+      INNER JOIN question q
+        ON q.question_id = a.question_id
+      INNER JOIN user_integrations ui
+        ON ui.integrations_id = q.integrations_id
+      WHERE a.question_id = #{questionId}
+      ORDER BY a.answer_id DESC
+      LIMIT 1
+    ]]>
+  </select>
+
+  <insert id="insertFeedbackAnswer">
+    <![CDATA[
+      INSERT INTO answer (
+        question_id,
+        prev_answer_id,
+        answer,
+        feedback
+      ) VALUES (
+        #{questionId},
+        #{prevAnswerId},
+        #{answer},
+        #{feedback}
+      )
+    ]]>
+  </insert>
+
   <update id="updateAnswerTelegramStatus">
     <![CDATA[
       UPDATE answer

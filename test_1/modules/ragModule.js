@@ -26,6 +26,19 @@ async function insertAnswer(questionId, answer) {
   return query(getSql("insertAnswer", { questionId, answer }));
 }
 
+async function selectLatestAnswerForFeedback(questionId) {
+  return query(getSql("selectLatestAnswerForFeedback", { questionId }));
+}
+
+async function insertFeedbackAnswer(questionId, prevAnswerId, answer, feedback) {
+  return query(getSql("insertFeedbackAnswer", {
+    questionId,
+    prevAnswerId,
+    answer,
+    feedback,
+  }));
+}
+
 async function updateAnswerTelegramStatus(answerId, telSendType) {
   return query(getSql("updateAnswerTelegramStatus", {
     answerId,
@@ -37,5 +50,7 @@ module.exports = {
   selectTelegramIntegrations,
   insertQuestion,
   insertAnswer,
+  selectLatestAnswerForFeedback,
+  insertFeedbackAnswer,
   updateAnswerTelegramStatus,
 };
