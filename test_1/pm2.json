@@ -1,0 +1,15 @@
+{
+  "apps": [
+    {
+      "name": "RAG",
+      "cwd": "./",
+      "script": "./bin/www",
+      "interpreter": "node",
+      "watch": false,
+      "ignore_watch": [
+        "node_modules",
+        ".rag-cache"
+      ]
+    }
+  ]
+}

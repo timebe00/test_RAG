@@ -19,6 +19,7 @@
     "http-errors": "~1.6.3",
     "langchain": "^1.5.9",
     "morgan": "~1.9.1",
+    "node-telegram-bot-api": "^1.2.0",
     "pdf-parse": "^2.4.5"
   }
 }

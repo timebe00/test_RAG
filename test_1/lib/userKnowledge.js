@@ -303,9 +303,34 @@ async function preloadAllUserKnowledge() {
   return results;
 }
 
+// 특정 userID만 미리 임베딩하고 싶을 때 사용하는 보조 함수다.
+// 인자를 넘기면 해당 사용자만 준비하고, 비어 있으면 전체 준비와 같은 흐름으로 처리할 수 있다.
+async function preloadSelectedUserKnowledge(targetUserIDs = []) {
+  const userIDs = Array.isArray(targetUserIDs)
+    ? [...new Set(targetUserIDs.map((userID) => String(userID).trim()).filter(Boolean))]
+    : [];
+
+  if (userIDs.length === 0) {
+    return preloadAllUserKnowledge();
+  }
+
+  const results = [];
+
+  for (const userID of userIDs) {
+    const knowledge = await getUserKnowledge(userID);
+    results.push({
+      userID,
+      chunks: knowledge.length,
+    });
+  }
+
+  return results;
+}
+
 module.exports = {
   getUserKnowledge,
   listKnownUserIDs,
   preloadAllUserKnowledge,
+  preloadSelectedUserKnowledge,
   searchUserKnowledge,
 };

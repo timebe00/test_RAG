@@ -141,3 +141,12 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Ollama runtime state: downloaded models, cache, and generated SSH keys
+/ollama/
+nginx/fastcgi_params
+nginx/mime.types
+nginx/modules
+nginx/nginx.conf
+nginx/scgi_params
+nginx/uwsgi_params

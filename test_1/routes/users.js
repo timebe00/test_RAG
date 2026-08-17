@@ -12,7 +12,9 @@ const router = express.Router();
 // 해당 사용자의 PDF만 조회하고, 가장 관련 높은 청크를 고른 뒤,
 // 그 청크를 모델의 근거 컨텍스트로 넘긴다.
 async function answerQuestion(req, res) {
+  //  아이디 가져오기
   const { userID } = req.params;
+  //  질문 가져오기
   const question = String(req.body.question || req.query.question || "").trim();
 
   if (!question) {
@@ -57,8 +59,7 @@ Question:
 }
 
 // 프론트에서 쓰기 편하도록 GET과 POST를 둘 다 지원한다.
-router.get("/:userID", answerQuestion);
-router.post("/:userID", answerQuestion);
+router.get("/askAI/:userID", answerQuestion);
 
 
 module.exports = router;
