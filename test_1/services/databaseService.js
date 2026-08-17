@@ -1,20 +1,11 @@
-const { query } = require("../lib/database");
+const {
+  selectDatabaseStatus,
+  selectTables,
+} = require("../modules/databaseModule");
 
 async function getDatabaseStatus() {
-  const statusRows = await query(`
-    SELECT
-      1 AS connectionTest,
-      DATABASE() AS databaseName,
-      VERSION() AS version,
-      NOW() AS serverTime
-  `);
-
-  const tableRows = await query(`
-    SELECT TABLE_NAME AS tableName
-    FROM information_schema.TABLES
-    WHERE TABLE_SCHEMA = DATABASE()
-    ORDER BY TABLE_NAME
-  `);
+  const statusRows = await selectDatabaseStatus();
+  const tableRows = await selectTables();
 
   return {
     ...statusRows[0],

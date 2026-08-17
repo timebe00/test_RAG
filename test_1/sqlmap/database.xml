@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mapper namespace="database">
+  <select id="selectDatabaseStatus">
+    <![CDATA[
+      SELECT
+        1 AS connectionTest,
+        DATABASE() AS databaseName,
+        VERSION() AS version,
+        NOW() AS serverTime
+    ]]>
+  </select>
+
+  <select id="selectTables">
+    <![CDATA[
+      SELECT TABLE_NAME AS tableName
+      FROM information_schema.TABLES
+      WHERE TABLE_SCHEMA = DATABASE()
+      ORDER BY TABLE_NAME
+    ]]>
+  </select>
+</mapper>
