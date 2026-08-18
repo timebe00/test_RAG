@@ -79,7 +79,7 @@ router.post("/telegram/webhook/message", async function(req, res) {
   }
 });
 
-router.get("/askAI/:userID", async function(req, res) {
+router.post("/askAI/:userID", async function(req, res) {
   const { userID } = req.params;
   const body = req.body || {};
   const query = req.query || {};
