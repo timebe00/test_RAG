@@ -5,9 +5,15 @@ const router = express.Router();
 
 router.get("/askAI/:userID", async function(req, res) {
   const { userID } = req.params;
-  const question = String(req.body.question || req.query.question || "").trim();
+  const body = req.body || {};
+  const query = req.query || {};
+  const question = String(body.question || query.question || "").trim();
+  // body에 return이 명시되어 있으면 null도 유효한 값으로 유지한다.
+  const returnValue = Object.prototype.hasOwnProperty.call(body, "return")
+    ? body.return
+    : query.return;
   const apiKey = String(
-    req.get("x-api-key") || req.body.apiKey || req.query.apiKey || ""
+    req.get("x-api-key") || body.apiKey || query.apiKey || ""
   ).trim();
 
   if (!question) {
@@ -19,7 +25,7 @@ router.get("/askAI/:userID", async function(req, res) {
   }
 
   try {
-    const result = await answerQuestion(userID, question, apiKey);
+    const result = await answerQuestion(userID, question, apiKey, returnValue);
     return res.json(result);
   } catch (error) {
     if ([400, 401, 404, 502].includes(error.status)) {

@@ -22,10 +22,12 @@
       INSERT INTO question (
         integrations_id,
         question,
+        `return`,
         send_type
       ) VALUES (
         #{integrationsId},
         #{question},
+        #{returnText},
         '1'
       )
     ]]>
@@ -67,6 +69,85 @@
     ]]>
   </select>
 
+  <!-- 선택한 질문에서 answer_id가 가장 큰 최신 답변을 조회한다. -->
+  <select id="selectLatestAnswerForDelivery">
+    <![CDATA[
+      SELECT
+        q.question_id AS questionId,
+        q.question,
+        q.`return` AS returnValue,
+        a.answer,
+        ui.return_url AS returnUrl,
+        ui.return_method AS returnMethod,
+        ui.return_auth_value AS returnAuthValue,
+        ui.telegram_bot_token AS telegramBotToken,
+        ui.telegram_chat_id AS telegramChatId
+      FROM question q
+      INNER JOIN user_integrations ui
+        ON ui.integrations_id = q.integrations_id
+      INNER JOIN answer a
+        ON a.answer_id = (
+          SELECT MAX(latest_answer.answer_id)
+          FROM answer latest_answer
+          WHERE latest_answer.question_id = q.question_id
+        )
+      WHERE q.question_id = #{questionId}
+        AND ui.telegram_chat_id = #{chatId}
+      LIMIT 1
+    ]]>
+  </select>
+
+  <!-- 사용자의 발송 전 질문과 각 질문의 최신 답변만 조회한다. -->
+  <select id="selectPendingAnswersForDelivery">
+    <![CDATA[
+      SELECT
+        q.question_id AS questionId,
+        q.question,
+        q.`return` AS returnValue,
+        a.answer,
+        ui.return_url AS returnUrl,
+        ui.return_method AS returnMethod,
+        ui.return_auth_value AS returnAuthValue,
+        ui.telegram_bot_token AS telegramBotToken,
+        ui.telegram_chat_id AS telegramChatId
+      FROM user_integrations ui
+      INNER JOIN question q
+        ON q.integrations_id = ui.integrations_id
+      INNER JOIN answer a
+        ON a.answer_id = (
+          SELECT MAX(latest_answer.answer_id)
+          FROM answer latest_answer
+          WHERE latest_answer.question_id = q.question_id
+        )
+      WHERE ui.telegram_chat_id = #{chatId}
+        AND q.send_type = '1'
+      ORDER BY q.question_id
+    ]]>
+  </select>
+
+  <!-- 사용자의 모든 질문과 각 질문의 최신 답변을 제외 처리용으로 조회한다. -->
+  <select id="selectAllAnswersForExclusion">
+    <![CDATA[
+      SELECT
+        q.question_id AS questionId,
+        q.question,
+        a.answer,
+        ui.telegram_bot_token AS telegramBotToken,
+        ui.telegram_chat_id AS telegramChatId
+      FROM user_integrations ui
+      INNER JOIN question q
+        ON q.integrations_id = ui.integrations_id
+      INNER JOIN answer a
+        ON a.answer_id = (
+          SELECT MAX(latest_answer.answer_id)
+          FROM answer latest_answer
+          WHERE latest_answer.question_id = q.question_id
+        )
+      WHERE ui.telegram_chat_id = #{chatId}
+      ORDER BY q.question_id
+    ]]>
+  </select>
+
   <insert id="insertFeedbackAnswer">
     <![CDATA[
       INSERT INTO answer (
@@ -93,6 +174,20 @@
           ELSE NULL
         END
       WHERE answer_id = #{answerId}
+    ]]>
+  </update>
+
+  <!-- 정상 발송일 때만 발송일을 기록하고 그 외 상태에서는 초기화한다. -->
+  <update id="updateQuestionDeliveryStatus">
+    <![CDATA[
+      UPDATE question
+      SET
+        send_type = #{sendType},
+        send_date = CASE
+          WHEN #{sendType} = '2' THEN NOW()
+          ELSE NULL
+        END
+      WHERE question_id = #{questionId}
     ]]>
   </update>
 </mapper>

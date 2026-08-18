@@ -1,6 +1,7 @@
 const { Ollama } = require("@langchain/ollama");
 const { StringOutputParser } = require("@langchain/core/output_parsers");
 const { ChatPromptTemplate } = require("@langchain/core/prompts");
+const axios = require("axios");
 
 const { searchUserKnowledge } = require("../lib/userKnowledge");
 const { getOllamaBaseUrl } = require("../lib/ollamaConfig");
@@ -10,9 +11,187 @@ const {
   insertQuestion,
   insertAnswer,
   selectLatestAnswerForFeedback,
+  selectLatestAnswerForDelivery,
+  selectPendingAnswersForDelivery,
+  selectAllAnswersForExclusion,
   insertFeedbackAnswer,
   updateAnswerTelegramStatus,
+  updateQuestionDeliveryStatus,
 } = require("../modules/ragModule");
+
+function extractQuestionId(text) {
+  const match = String(text || "").match(
+    /(?:^|\n)[ \t]*ID[ \t]*:[ \t]*(\d+)[ \t]*(?:\n|$)/i
+  );
+  return match ? match[1] : null;
+}
+
+// 사용자에게 전달할 발송/제외 결과 메시지를 동일한 형식으로 생성한다.
+function formatDeliveryMessage(title, delivery) {
+  return [
+    title,
+    "",
+    `id:${delivery.questionId}`,
+    "",
+    `Q:${delivery.question}`,
+    "",
+    `A:${delivery.answer}`,
+  ].join("\n");
+}
+
+// Telegram 알림 실패가 외부 답변 발송 결과를 변경하지 않도록 별도로 처리한다.
+async function notifyDelivery(delivery, title) {
+  try {
+    await sendMessage(
+      formatDeliveryMessage(title, delivery),
+      delivery.telegramBotToken,
+      delivery.telegramChatId
+    );
+  } catch (error) {
+    console.error(
+      `Telegram delivery notification failed for question ${delivery.questionId}:`,
+      error
+    );
+  }
+}
+
+// 연동 설정에 지정된 HTTP 메소드와 인증정보를 사용해 최신 답변을 반환한다.
+async function deliverAnswer(delivery) {
+  const method = String(delivery.returnMethod || "POST").trim().toUpperCase();
+  // DB에는 JSON 문자열로 저장되어 있으므로 원래 자료형으로 복원해 전달한다.
+  const payload = {
+    answer: delivery.answer,
+    return: delivery.returnValue == null
+      ? null
+      : JSON.parse(delivery.returnValue),
+  };
+  const headers = {};
+
+  if (delivery.returnAuthValue != null && String(delivery.returnAuthValue).trim()) {
+    // 인증값이 없으면 Authorization 헤더 자체를 추가하지 않는다.
+    headers.Authorization = String(delivery.returnAuthValue).trim();
+  }
+
+  const request = {
+    url: delivery.returnUrl,
+    method,
+    headers,
+  };
+
+  if (["GET", "HEAD"].includes(method)) {
+    request.params = payload;
+  } else {
+    request.data = payload;
+  }
+
+  try {
+    await axios(request);
+  } catch (error) {
+    console.error(`Answer delivery failed for question ${delivery.questionId}:`, error);
+
+    try {
+      await updateQuestionDeliveryStatus(delivery.questionId, "4");
+    } catch (statusError) {
+      console.error(
+        `Delivery status update failed for question ${delivery.questionId}:`,
+        statusError
+      );
+    }
+
+    await notifyDelivery(delivery, "발송 실패");
+    return {
+      questionId: String(delivery.questionId),
+      sent: false,
+      error: error.message,
+    };
+  }
+
+  await updateQuestionDeliveryStatus(delivery.questionId, "2");
+  await notifyDelivery(delivery, "발송 완료");
+  return { questionId: String(delivery.questionId), sent: true };
+}
+
+// 회신 메시지의 질문 ID를 기준으로 발송 상태와 관계없이 최신 답변을 발송한다.
+async function sendLatestAnswer(replyText, chatId) {
+  const questionId = extractQuestionId(replyText);
+  if (!questionId) {
+    const error = new Error("회신한 메시지에서 질문 ID를 찾을 수 없습니다.");
+    error.status = 400;
+    throw error;
+  }
+
+  const rows = await selectLatestAnswerForDelivery(questionId, String(chatId));
+  if (rows.length === 0) {
+    const error = new Error("발송할 질문 또는 답변을 찾을 수 없습니다.");
+    error.status = 404;
+    throw error;
+  }
+
+  return deliverAnswer(rows[0]);
+}
+
+// 발송 전(send_type=1) 질문을 조회된 순서대로 한 건씩 발송한다.
+async function sendAllPendingAnswers(chatId) {
+  const deliveries = await selectPendingAnswersForDelivery(String(chatId));
+  const results = [];
+
+  for (const delivery of deliveries) {
+    results.push(await deliverAnswer(delivery));
+  }
+
+  return {
+    total: results.length,
+    sent: results.filter((result) => result.sent).length,
+    failed: results.filter((result) => !result.sent).length,
+    results,
+  };
+}
+
+// 질문 상태를 발송 제외로 변경한 후 최신 답변 내용과 함께 알림을 보낸다.
+async function excludeDelivery(delivery) {
+  await updateQuestionDeliveryStatus(delivery.questionId, "3");
+  await notifyDelivery(delivery, "제외 완료");
+
+  return {
+    questionId: String(delivery.questionId),
+    excluded: true,
+  };
+}
+
+// 회신 메시지에서 선택한 질문 한 건을 발송 제외 처리한다.
+async function excludeAnswer(replyText, chatId) {
+  const questionId = extractQuestionId(replyText);
+  if (!questionId) {
+    const error = new Error("회신한 메시지에서 질문 ID를 찾을 수 없습니다.");
+    error.status = 400;
+    throw error;
+  }
+
+  const rows = await selectLatestAnswerForDelivery(questionId, String(chatId));
+  if (rows.length === 0) {
+    const error = new Error("제외할 질문 또는 답변을 찾을 수 없습니다.");
+    error.status = 404;
+    throw error;
+  }
+
+  return excludeDelivery(rows[0]);
+}
+
+// 해당 Telegram 사용자에게 연결된 모든 질문을 한 건씩 발송 제외 처리한다.
+async function excludeAllAnswers(chatId) {
+  const deliveries = await selectAllAnswersForExclusion(String(chatId));
+  const results = [];
+
+  for (const delivery of deliveries) {
+    results.push(await excludeDelivery(delivery));
+  }
+
+  return {
+    total: results.length,
+    excluded: results.length,
+    results,
+  };
+}
 
 function createModel() {
   return new Ollama({
@@ -155,7 +334,7 @@ async function processTelegramFeedback(replyText, feedback) {
   };
 }
 
-async function answerQuestion(userID, question, apiKey) {
+async function answerQuestion(userID, question, apiKey, returnValue) {
   const integrations = await selectTelegramIntegrations(userID, apiKey);
 
   if (integrations.length === 0) {
@@ -164,9 +343,17 @@ async function answerQuestion(userID, question, apiKey) {
     throw error;
   }
 
+  // 전달받은 return 값의 객체/배열/원시 타입을 보존할 수 있도록 문자열화한다.
+  const returnText = returnValue === undefined
+    ? null
+    : JSON.stringify(returnValue);
   const questionIds = [];
   for (const integration of integrations) {
-    const result = await insertQuestion(integration.integrationsId, question);
+    const result = await insertQuestion(
+      integration.integrationsId,
+      question,
+      returnText
+    );
     questionIds.push(String(result.insertId));
   }
 
@@ -240,4 +427,8 @@ async function answerQuestion(userID, question, apiKey) {
 module.exports = {
   answerQuestion,
   processTelegramFeedback,
+  sendLatestAnswer,
+  sendAllPendingAnswers,
+  excludeAnswer,
+  excludeAllAnswers,
 };
