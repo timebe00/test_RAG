@@ -4,10 +4,8 @@ WORKDIR /app
 
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev \
-    && if ! command -v pm2 > /dev/null 2>&1; then npm install pm2@7.0.3 -g; fi \
+    && npm install pm2@7.0.3 -g \
     && npm cache clean --force
-
-COPY . .
 
 EXPOSE 3000
 

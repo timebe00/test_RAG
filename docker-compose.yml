@@ -23,6 +23,9 @@ services:
     build:
       context: ./test_1
       dockerfile: Dockerfile
+    volumes:
+      - ./test_1:/app
+      - rag-node-modules:/app/node_modules
     image: rag-node:24.19.0
     container_name: ragNode
     restart: unless-stopped
@@ -70,3 +73,4 @@ services:
 
 volumes:
   mariadb-data:
+  rag-node-modules:

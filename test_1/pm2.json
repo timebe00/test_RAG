@@ -5,7 +5,9 @@
       "cwd": "./",
       "script": "./bin/www",
       "interpreter": "node",
+      "treekill": false,
       "watch": true,
+      "watch_delay": 1000,
       "ignore_watch": [
         "node_modules",
         "**/node_modules/**",
@@ -17,7 +19,8 @@
       ],
       "watch_options": {
         "followSymlinks": false,
-        "usePolling": true
+        "usePolling": true,
+        "interval": 1000
       }
     }
   ]

@@ -57,7 +57,7 @@ CREATE TABLE `question` (
     `question_id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '질문 번호',
     `integrations_id` BIGINT NOT NULL COMMENT '텔레그램 번호',
     `question` TEXT NOT NULL COMMENT '질문 내용',
-    `send_type` VARCHAR(1) NULL COMMENT '발송 타입',
+    `send_type` VARCHAR(1) NULL COMMENT '발송 타입 1:발송전 2:발송 완료 3:발송 제외 4:발송 실패',
     `send_date` DATETIME NULL COMMENT '발송일',
     `reg_id` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록일',
     `upd_date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
