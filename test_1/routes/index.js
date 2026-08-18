@@ -79,8 +79,8 @@ router.post("/telegram/webhook/message", async function(req, res) {
   }
 });
 
-router.post("/askAI/:userID", async function(req, res) {
-  const { userID } = req.params;
+router.post("/askAI/user", async function(req, res) {
+  const userID = req.body.userID || req.query.userID || "";
   const body = req.body || {};
   const query = req.query || {};
   const question = String(body.question || query.question || "").trim();
@@ -100,9 +100,17 @@ router.post("/askAI/:userID", async function(req, res) {
     return res.status(400).json({ error: "apiKey is required." });
   }
 
+   if (!userID) {
+    return res.status(400).json({ error: "userID is required." });
+  }
+
   try {
     const result = await answerQuestion(userID, question, apiKey, returnValue);
-    return res.json(result);
+
+    return res.json({
+      result: true,
+      question_id : result.questionIds[0],
+    });
   } catch (error) {
     if ([400, 401, 404, 502].includes(error.status)) {
       return res.status(error.status).json({ error: error.message });
@@ -110,6 +118,7 @@ router.post("/askAI/:userID", async function(req, res) {
 
     console.error(`RAG failed for user ${userID}:`, error);
     return res.status(500).json({
+      result: false,
       error: "질문 처리 중 서버 오류가 발생했습니다.",
     });
   }
