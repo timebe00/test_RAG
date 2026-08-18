@@ -152,6 +152,6 @@ nginx/scgi_params
 nginx/uwsgi_params
 nginx/ssl
 
-/test_1/config
+/test_1/config/config.json
 
 .env

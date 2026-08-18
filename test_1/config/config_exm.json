@@ -1,0 +1,48 @@
+﻿{
+  "sendKey" : {
+    "send" : ["답변으로 발송 메시지"],
+    "allSend" : ["전체 답변 메시지"],
+    "del" : ["답변으로 제외할 답변 메시지"],
+    "allDel" : ["삭제 메시지"]
+  },
+  "ollama": {
+    "chatModel": {
+      "name": "모델명",
+      "description": "사용자 질문에 대한 최종 답변용 채팅 모델"
+    },
+    "embeddingModel": {
+      "name": "모델명",
+      "description": "유사도 검색을 위해 PDF와 쿼리를 벡터화하는 데 사용되는 임베딩 모델"
+    }
+  },
+  "database": {
+    "host": "mariadb",
+    "port": 3306,
+    "user": "DB아이디",
+    "passwordEnv": "DB 비밀번호",
+    "databaseEnv": "스키마 명",
+    "connectionLimit": 100,
+    "acquireTimeout": 10000
+  },
+  "security": {
+    "helmet": {
+      "contentSecurityPolicy": false
+    },
+    "cors": {
+      "enabled": false,
+      "origins": [],
+      "credentials": true
+    },
+    "bodyLimit": "1mb",
+    "rateLimit": {
+      "general": {
+        "windowMs": 900000,
+        "max": 100
+      },
+      "webhook": {
+        "windowMs": 60000,
+        "max": 60
+      }
+    }
+  }
+}
